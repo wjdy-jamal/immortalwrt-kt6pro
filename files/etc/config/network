@@ -4,6 +4,9 @@ config interface 'loopback'
 	option ipaddr '127.0.0.1'
 	option netmask '255.0.0.0'
 
+config globals 'globals'
+	option ula_prefix 'fd00:aaaa:bbbb::/48'
+
 config device
 	option name 'br-lan'
 	option type 'bridge'
@@ -14,10 +17,19 @@ config interface 'lan'
 	option proto 'static'
 	option ipaddr '192.168.1.1'
 	option netmask '255.255.255.0'
+	option ip6assign '60'
 
 config interface 'wan'
 	option device 'eth0.2'
 	option proto 'dhcp'
+	option metric '10'
+
+config interface 'wwan'
+	option device 'wwan0'
+	option proto 'qmi'
+	option device '/dev/cdc-wdm0'
+	option apn 'internet'
+	option metric '20'
 
 config switch
 	option name 'switch0'
@@ -28,3 +40,10 @@ config switch_vlan
 	option device 'switch0'
 	option vlan '1'
 	option ports '0 1 2 5t'
+	option description 'LAN (3 Ports)'
+
+config switch_vlan
+	option device 'switch0'
+	option vlan '2'
+	option ports '3 5t'
+	option description 'WAN (1 Port)'

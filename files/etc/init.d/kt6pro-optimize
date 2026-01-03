@@ -4,7 +4,28 @@ START=96
 STOP=10
 
 start() {
-    echo "تحسين KT-6 Pro..."
+    echo "تحسين أداء KT-6 Pro..."
+    
+    # QCA8337 Switch Optimization
     swconfig dev switch0 set enable_vlan 1
-    echo "تم!"
+    
+    for port in 0 1 2; do
+        swconfig dev switch0 set port_stp_state $port 0
+        swconfig dev switch0 set port_flowcontrol $port 0
+        swconfig dev switch0 set port_priority $port 0
+    done
+    
+    swconfig dev switch0 set port_flowcontrol 3 1
+    swconfig dev switch0 set port_priority 3 3
+    
+    # Network Optimization
+    sysctl -w net.core.rmem_max=268435456
+    sysctl -w net.core.wmem_max=268435456
+    sysctl -w net.ipv4.tcp_congestion_control=bbr
+    
+    echo "✅ تم تحسين أداء الجهاز"
+}
+
+stop() {
+    echo "إيقاف تحسينات KT-6 Pro"
 }

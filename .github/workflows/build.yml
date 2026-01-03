@@ -4,24 +4,42 @@ on:
   workflow_dispatch:
   push:
     branches: [ main ]
+  schedule:
+    - cron: '0 2 * * 0'  # بناء أسبوعي كل أحد الساعة 2 صباحاً
+
+env:
+  BUILD_THREADS: 4
+  CCACHE_SIZE: 10G
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 180
-    
+    timeout-minutes: 300  # 5 ساعات
+
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v3
       with:
         submodules: recursive
-        
+        path: source
+
     - name: Setup Build Environment
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential ccache git python3
-        echo "✅ البيئة جاهزة"
-        
+        sudo apt-get install -y build-essential ccache ecj fastjar file g++ gawk \
+          gettext git java-propose-classpath libelf-dev libncurses5-dev \
+          libncursesw5-dev libssl-dev python3 python3-distutils python3-setuptools \
+          rsync subversion swig time xsltproc zlib1g-dev unzip wget curl \
+          python-is-python3 gcc-multilib g++-multilib ncurses-dev zlib1g-dev \
+          libbz2-dev libssl-dev liblzma-dev libc6-dev-i386 autoconf automake \
+          libtool-bin python3-pip libtinfo5 upx-ucl
+
+    - name: Setup ccache
+      uses: hendrikmuhs/ccache-action@v1.2
+      with:
+        key: ${{ github.ref }}
+        max-size: ${{ env.CCACHE_SIZE }}
+
     - name: Clone ImmortalWrt
       run: |
         git clone --depth=1 https://github.com/immortalwrt/immortalwrt.git -b v23.05.3
@@ -29,16 +47,71 @@ jobs:
         ./scripts/feeds update -a
         ./scripts/feeds install -a
         echo "✅ تم استنساخ ImmortalWrt"
+
+    - name: Apply KT-6 Pro Configuration
+      run: |
+        # نسخ ملف الإعدادات الكامل
+        cp source/configs/kt6pro.config immortalwrt/.config
         
-    - name: Prepare Build
+        # نسخ ملف DTS المخصص
+        mkdir -p immortalwrt/target/linux/qualcommax/files-5.15/arch/arm64/boot/dts/qcom/
+        cp source/dts/ipq5018-kt6pro.dts immortalwrt/target/linux/qualcommax/files-5.15/arch/arm64/boot/dts/qcom/
+        
+        # نسخ ملفات التخصيص
+        cp -r source/files/* immortalwrt/files/
+        
+        cd immortalwrt
+        make defconfig
+
+    - name: Build Information
+      run: |
+        echo "🔨 بدء بناء ImmortalWrt الحقيقي لـ KT-6 Pro"
+        echo "🔄 الإصدار: ImmortalWrt 23.05.3"
+        echo "📱 المعالج: Qualcomm IPQ5018 (Dual-core Cortex-A53)"
+        echo "🔌 السويتش: QCA8337 (3 LAN + 1 WAN)"
+        echo "📶 الواي فاي: Qualcomm ath11k (WiFi 6 AX3000)"
+        echo "📱 المودم: 5G مدمج"
+        echo "⚡ MWAN3: دعم دمج السرعات"
+        echo "🕐 وقت البدء: $(date)"
+        echo "⏳ الوقت المتوقع: 2-3 ساعات"
+
+    - name: Build Firmware
       run: |
         cd immortalwrt
-        echo "CONFIG_TARGET_qualcommax=y" > .config
-        echo "CONFIG_TARGET_qualcommax_ipq50xx=y" >> .config
-        echo "✅ إعدادات البناء جاهزة"
-        
-    - name: Build Status
+        echo "🚀 بدء عملية البناء..."
+        echo "📊 استخدام $BUILD_THREADS أنوية للمعالجة"
+        make -j${{ env.BUILD_THREADS }} V=s 2>&1 | tee build.log
+
+    - name: Check Build Results
       run: |
-        echo "🚀 بدء بناء ImmortalWrt لـ KT-6 Pro"
-        echo "📅 الوقت: $(date)"
-        echo "💾 المساحة الحرة: $(df -h / | tail -1)"
+        cd immortalwrt
+        if [ -f bin/targets/qualcommax/ipq50xx/*.bin ]; then
+          echo "✅ البناء نجح!"
+          ls -lh bin/targets/qualcommax/ipq50xx/*.bin
+        else
+          echo "❌ فشل البناء"
+          exit 1
+        fi
+
+    - name: Upload Firmware Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: firmware-kt6pro
+        path: |
+          immortalwrt/bin/targets/qualcommax/ipq50xx/*.bin
+          immortalwrt/bin/targets/qualcommax/ipq50xx/*.manifest
+        retention-days: 30
+
+    - name: Upload Build Log
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-logs
+        path: |
+          immortalwrt/build.log
+        retention-days: 90
+
+    - name: Completion Message
+      run: |
+        echo "🎉 تم اكتمال بناء ImmortalWrt لـ KT-6 Pro!"
+        echo "📥 يمكنك تحميل الصورة من قسم Artifacts"
+        echo "🕐 وقت الانتهاء: $(date)"
