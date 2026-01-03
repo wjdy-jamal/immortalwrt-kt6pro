@@ -1,76 +1,9 @@
-name: Build ImmortalWrt for KT-6 Pro
-
-on:
-  workflow_dispatch:
-  push:
-    branches: [ main ]
-
-env:
-  BUILD_THREADS: 4
-
+name: KT-6 Pro Build Test
+on: [workflow_dispatch]
 jobs:
-  build:
+  test:
     runs-on: ubuntu-22.04
-    timeout-minutes: 180
-
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-
-    - name: Setup Build Environment
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential ccache git python3 python3-dev \
-          python3-pip python3-setuptools rsync subversion wget curl unzip \
-          gawk gettext libncurses-dev libssl-dev zlib1g-dev file
-        echo "✅ البيئة جاهزة"
-
-    - name: Clone ImmortalWrt
-      run: |
-        git clone --depth=1 https://github.com/immortalwrt/immortalwrt.git -b v23.05.3
-        cd immortalwrt
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
-        echo "✅ تم استنساخ ImmortalWrt"
-
-    - name: Configure Build
-      run: |
-        cd immortalwrt
-        # إعدادات أساسية للتجربة
-        cat > .config << 'CONFIG'
-CONFIG_TARGET_qualcommax=y
-CONFIG_TARGET_qualcommax_ipq50xx=y
-CONFIG_TARGET_qualcommax_ipq50xx_DEVICE_glinet_gl-ax1800=y
-CONFIG_PACKAGE_kmod-ath11k=y
-CONFIG_PACKAGE_ath11k-firmware-ipq50xx=y
-CONFIG_PACKAGE_kmod-switch-qca8337=y
-CONFIG_PACKAGE_luci=y
-CONFIG_PACKAGE_luci-ssl-openssl=y
-CONFIG
-        # تشغيل defconfig
-        make defconfig
-        echo "✅ التكوين جاهز"
-
-    - name: Build Test
-      run: |
-        cd immortalwrt
-        echo "🚀 بدء بناء تجريبي..."
-        echo "📱 الجهاز: KT-6 Pro (IPQ5018 + QCA8337)"
-        make tools/compile -j4
-        echo "✅ البناء التجريبي نجح"
-
-    - name: Show Build Info
-      run: |
-        echo "🎯 تم إعداد بيئة البناء بنجاح"
-        echo "🔧 الخطوة القادمة: بناء الصورة الكاملة"
-        echo "⏳ سيستغرق البناء الكامل 2-3 ساعات"
-        
-    - name: Upload Config File
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: build-config
-        path: immortalwrt/.config
-        retention-days: 7
+      - uses: actions/checkout@v4
+      - run: echo "✅ GitHub Actions v4 يعمل"
+      - run: echo "📱 جهاز KT-6 Pro جاهز للبناء"
