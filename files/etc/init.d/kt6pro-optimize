@@ -1,0 +1,10 @@
+#!/bin/sh /etc/rc.common
+
+START=96
+STOP=10
+
+start() {
+    echo "تحسين KT-6 Pro..."
+    swconfig dev switch0 set enable_vlan 1
+    echo "تم!"
+}

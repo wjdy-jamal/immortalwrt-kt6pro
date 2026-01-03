@@ -1,0 +1,44 @@
+name: Build ImmortalWrt for KT-6 Pro
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        
+    - name: Setup Build Environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential ccache git python3
+        echo "✅ البيئة جاهزة"
+        
+    - name: Clone ImmortalWrt
+      run: |
+        git clone --depth=1 https://github.com/immortalwrt/immortalwrt.git -b v23.05.3
+        cd immortalwrt
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+        echo "✅ تم استنساخ ImmortalWrt"
+        
+    - name: Prepare Build
+      run: |
+        cd immortalwrt
+        echo "CONFIG_TARGET_qualcommax=y" > .config
+        echo "CONFIG_TARGET_qualcommax_ipq50xx=y" >> .config
+        echo "✅ إعدادات البناء جاهزة"
+        
+    - name: Build Status
+      run: |
+        echo "🚀 بدء بناء ImmortalWrt لـ KT-6 Pro"
+        echo "📅 الوقت: $(date)"
+        echo "💾 المساحة الحرة: $(df -h / | tail -1)"
