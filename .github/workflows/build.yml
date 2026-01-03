@@ -1,9 +1,26 @@
-name: KT-6 Pro Build Test
+name: Test GitHub Actions
+
 on: [workflow_dispatch]
+
 jobs:
   test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v4
-      - run: echo "✅ GitHub Actions v4 يعمل"
-      - run: echo "📱 جهاز KT-6 Pro جاهز للبناء"
+    - name: Check GitHub Actions
+      run: |
+        echo "🧪 اختبار GitHub Actions الأساسي"
+        echo "✅ النظام: Ubuntu $(lsb_release -rs)"
+        echo "📅 الوقت: $(date)"
+        echo "🐧 النواة: $(uname -r)"
+        
+    - name: Check Disk Space
+      run: |
+        echo "💾 مساحة القرص المتوفرة:"
+        df -h
+        
+    - name: Success
+      run: |
+        echo "🎉 الاختبار نجح!"
+        echo "✅ GitHub Actions يعمل بشكل صحيح"
+        echo "✅ يمكننا الآن متابعة بناء ImmortalWrt"
