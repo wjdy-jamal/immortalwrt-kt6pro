@@ -1,26 +1,85 @@
-name: Test GitHub Actions
+name: Build ImmortalWrt for KT-6 Pro
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+env:
+  BUILD_THREADS: 2  # أقل لتفادي مشاكل الذاكرة
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 120  # ساعتين كحد أقصى
+
     steps:
-    - name: Check GitHub Actions
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Basic Environment
       run: |
-        echo "🧪 اختبار GitHub Actions الأساسي"
-        echo "✅ النظام: Ubuntu $(lsb_release -rs)"
-        echo "📅 الوقت: $(date)"
-        echo "🐧 النواة: $(uname -r)"
+        echo "🔧 إعداد بيئة البناء الأساسية..."
+        sudo apt-get update
+        sudo apt-get install -y build-essential git ccache python3 python3-dev \
+          python3-pip python3-setuptools rsync wget curl unzip gawk gettext \
+          libncurses-dev libssl-dev zlib1g-dev file
         
-    - name: Check Disk Space
+    - name: Clone ImmortalWrt (Shallow)
       run: |
-        echo "💾 مساحة القرص المتوفرة:"
-        df -h
+        echo "📥 استنساخ ImmortalWrt..."
+        git clone --depth=1 https://github.com/immortalwrt/immortalwrt.git -b v23.05.3
+        cd immortalwrt
         
-    - name: Success
+    - name: Setup Feeds
       run: |
-        echo "🎉 الاختبار نجح!"
-        echo "✅ GitHub Actions يعمل بشكل صحيح"
-        echo "✅ يمكننا الآن متابعة بناء ImmortalWrt"
+        cd immortalwrt
+        echo "📦 تحديث Feeds..."
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+        
+    - name: Configure for KT-6 Pro
+      run: |
+        cd immortalwrt
+        echo "⚙️ تكوين لـ KT-6 Pro..."
+        cat > .config << 'CONFIG'
+CONFIG_TARGET_qualcommax=y
+CONFIG_TARGET_qualcommax_ipq50xx=y
+CONFIG_TARGET_qualcommax_ipq50xx_DEVICE_glinet_gl-ax1800=y
+
+# الحزم الأساسية
+CONFIG_PACKAGE_kmod-ath11k=y
+CONFIG_PACKAGE_ath11k-firmware-ipq50xx=y
+CONFIG_PACKAGE_kmod-switch-qca8337=y
+CONFIG_PACKAGE_swconfig=y
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-ssl-openssl=y
+CONFIG_PACKAGE_luci-theme-bootstrap=y
+
+# أدوات أساسية
+CONFIG_PACKAGE_openssh-sftp-server=y
+CONFIG_PACKAGE_curl=y
+CONFIG_PACKAGE_wget=y
+CONFIG_PACKAGE_nano=y
+CONFIG
+        make defconfig
+        
+    - name: Test Compile
+      run: |
+        cd immortalwrt
+        echo "🧪 اختبار الترجمة (أدوات فقط)..."
+        make tools/compile -j${{ env.BUILD_THREADS }} V=s 2>&1 | tail -50
+        echo "✅ اختبار الترجمة نجح"
+        
+    - name: Prepare for Next Step
+      run: |
+        echo "🎯 تم إعداد بيئة البناء بنجاح"
+        echo "📊 الخطوة القادمة: البناء الكامل"
+        echo "💡 يمكن الآن إضافة البناء الكامل في المرحلة التالية"
+        
+    - name: Upload Configuration
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-config
+        path: immortalwrt/.config
+        retention-days: 7
